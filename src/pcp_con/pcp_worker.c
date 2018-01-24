@@ -80,6 +80,7 @@ static void process_status_request(PCP_CONNECTION *frontend);
 static void process_promote_node(PCP_CONNECTION *frontend,char *buf, char tos);
 static void process_shutown_request(PCP_CONNECTION *frontend,char mode);
 static void process_set_configration_parameter(PCP_CONNECTION *frontend,char *buf, int len);
+static void process_sync_node(PCP_CONNECTION *frontend, char *buf);
 
 static void pcp_worker_will_go_down(int code, Datum arg);
 
@@ -313,6 +314,11 @@ pcp_process_command(char tos, char *buf, int buf_len)
 		case 'F':
 			ereport(DEBUG1,
 					(errmsg("PCP processing request, stop online recovery")));
+			break;
+
+		case 'S':
+			set_ps_display("PCP: processing node synchronize request", false);
+			process_sync_node(pcp_frontend, buf);
 			break;
 
 		case 'X':			/* disconnect */
@@ -1251,6 +1257,52 @@ process_set_configration_parameter(PCP_CONNECTION *frontend,char *buf, int len)
 	pcp_write(frontend, &wsize, sizeof(int));
 	pcp_write(frontend, code, sizeof(code));
 	do_pcp_flush(frontend);
+}
+
+static void 
+process_sync_node(PCP_CONNECTION *frontend, char *buf)
+{
+	int len = 0;
+	char cmd[1024];
+	/* First, send array size of connection_info */
+	char proc[] = "ProcessCommand";
+	char code[] = "STDERR";
+	/* Finally, indicate that all data is sent */
+	char *fin_code = "CommandComplete";
+	char out[256];
+	char *send_stderr;
+	int exstat;
+    FILE *fd;
+
+	pcp_write(frontend, "s", 1);
+	len = htonl(sizeof(proc) + sizeof(int));
+	pcp_write(frontend, &len, sizeof(int));
+	pcp_write(frontend, proc, sizeof(proc));
+	do_pcp_flush(frontend);
+
+	sprintf(cmd, "/QVS/usr/bin/pg_basebackup -h %s -p 3388 -U postgres -D /share/Public/pgsql 2>&1", buf);
+    fd = popen(cmd, "r");
+	while((fgets(out, 256, fd)) != NULL) {
+		pcp_write(frontend, "s", 1);
+        len = htonl(sizeof(int)
+				    + sizeof(code)
+					+ strlen(out) + 1);
+		pcp_write(frontend, &len, sizeof(int));
+		pcp_write(frontend, code, sizeof(code));
+		pcp_write(frontend, out, strlen(out) + 1);
+	}
+	exstat = WEXITSTATUS(pclose(fd));
+	fin_code = (exstat == 0)? "CommandComplete":"Failed";
+
+	pcp_write(frontend, "s", 1);
+	len = htonl(sizeof(int) + strlen(fin_code) + 1);
+	pcp_write(frontend, &len, sizeof(int));
+	pcp_write(frontend, fin_code, strlen(fin_code) + 1);
+	do_pcp_flush(frontend);
+
+	ereport(DEBUG1,
+			(errmsg("PCP: processing node synchronization request"),
+			 errdetail(cmd)));
 }
 /*
  * Wrapper around pcp_flush which throws FATAL error when pcp_flush fails
