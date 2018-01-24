@@ -76,17 +76,17 @@ struct AppTypes
 
 struct AppTypes AllAppTypes[] =
 	{
-		{"pcp_attach_node", PCP_ATTACH_NODE,"n:h:p:U:wWvd","attach a node from pgpool-II"},
-		{"pcp_detach_node", PCP_DETACH_NODE,"n:h:p:U:gwWvd","detach a node from pgpool-II"},
-		{"pcp_node_count", PCP_NODE_COUNT,"h:p:U:wWvd","display the total number of nodes under pgpool-II's control"},
-		{"pcp_node_info", PCP_NODE_INFO,"n:h:p:U:wWvd", "display a pgpool-II node's information"},
-		{"pcp_pool_status", PCP_POOL_STATUS,"h:p:U:wWvd", "display pgpool configuration and status"},
-		{"pcp_proc_count", PCP_PROC_COUNT,"h:p:U:wWvd", "display the list of pgpool-II child process PIDs"},
-		{"pcp_proc_info", PCP_PROC_INFO,"h:p:P:U:awWvd","display a pgpool-II child process' information"},
-		{"pcp_promote_node", PCP_PROMOTE_NODE,"n:h:p:U:gwWvd", "promote a node as new master from pgpool-II"},
-		{"pcp_recovery_node", PCP_RECOVERY_NODE,"n:h:p:U:wWvd","recover a node"},
-		{"pcp_stop_pgpool", PCP_STOP_PGPOOL,"m:h:p:U:wWvd", "terminate pgpool-II"},
-		{"pcp_watchdog_info", PCP_WATCHDOG_INFO,"n:h:p:U:wWvd", "display a pgpool-II watchdog's information"},
+		{"pcp_attach_node", PCP_ATTACH_NODE,"n:h:p:U:wW:vd","attach a node from pgpool-II"},
+		{"pcp_detach_node", PCP_DETACH_NODE,"n:h:p:U:gwW:vd","detach a node from pgpool-II"},
+		{"pcp_node_count", PCP_NODE_COUNT,"h:p:U:wW:vd","display the total number of nodes under pgpool-II's control"},
+		{"pcp_node_info", PCP_NODE_INFO,"n:h:p:U:wW:vd", "display a pgpool-II node's information"},
+		{"pcp_pool_status", PCP_POOL_STATUS,"h:p:U:wW:vd", "display pgpool configuration and status"},
+		{"pcp_proc_count", PCP_PROC_COUNT,"h:p:U:wW:vd", "display the list of pgpool-II child process PIDs"},
+		{"pcp_proc_info", PCP_PROC_INFO,"h:p:P:U:awW:vd","display a pgpool-II child process' information"},
+		{"pcp_promote_node", PCP_PROMOTE_NODE,"n:h:p:U:gwW:vd", "promote a node as new master from pgpool-II"},
+		{"pcp_recovery_node", PCP_RECOVERY_NODE,"n:h:p:U:wW:vd","recover a node"},
+		{"pcp_stop_pgpool", PCP_STOP_PGPOOL,"m:h:p:U:wW:vd", "terminate pgpool-II"},
+		{"pcp_watchdog_info", PCP_WATCHDOG_INFO,"n:h:p:U:wW:vd", "display a pgpool-II watchdog's information"},
 		{NULL, UNKNOWN,NULL,NULL},
 	};
 struct AppTypes* current_app_type;
@@ -122,7 +122,7 @@ main(int argc, char **argv)
 		{"process-id", required_argument, NULL, 'P'},
 		{"username", required_argument, NULL, 'U'},
 		{"no-password", no_argument, NULL, 'w'},
-		{"password", no_argument, NULL, 'W'},
+		{"password", required_argument, NULL, 'W'},
 		{"mode", required_argument, NULL, 'm'},
 		{"gracefully", no_argument, NULL, 'g'},
 		{"verbose", no_argument, NULL, 'v'},
@@ -180,7 +180,8 @@ main(int argc, char **argv)
 				break;
 
 			case 'W':
-				need_password = true;
+				need_password = false;
+				pass = optarg;
 				break;
 
 			case 'g':
