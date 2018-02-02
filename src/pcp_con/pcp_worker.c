@@ -1270,6 +1270,7 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	/* Finally, indicate that all data is sent */
 	char *fin_code = "CommandComplete";
 	char out[256];
+	char *pg_user, *db_pwd;
 	char *send_stderr;
 	int exstat;
     FILE *fd;
@@ -1280,7 +1281,27 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	pcp_write(frontend, proc, sizeof(proc));
 	do_pcp_flush(frontend);
 
-	sprintf(cmd, "/QVS/usr/bin/sudo -u postgres /QVS/usr/bin/pg_basebackup -h %s -p 3388 -U postgres -D /share/Public/pgsql 2>&1", buf);
+	//Get the postgre_user from config file
+    sprintf(cmd, "/sbin/getcfg Cluster postgre_user -f /QVS/qvs.conf");
+    fd = popen(cmd, "r");
+    if ((fgets(out, 256, fd)) != NULL){
+        pg_user = (char *)malloc(strlen(out) * sizeof(char));
+        strncpy(pg_user, out, strlen(out)-1);
+    }
+    pg_user = "postgres";
+    pclose(fd);
+
+	//Get the db_password from config file
+	sprintf(cmd, "/sbin/getcfg Cluster db_password -f /QVS/qvs.conf");
+    fd = popen(cmd, "r");
+    if ((fgets(out, 256, fd)) != NULL){
+        db_pwd = (char *)malloc(strlen(out) * sizeof(char));
+        strncpy(db_pwd, out, strlen(out)-1);
+    }
+    db_pwd = "qvs";
+    pclose(fd);
+
+	sprintf(cmd, "/QVS/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 3388 -U postgres -D /QVS/pg_data 2>&1", pg_user, db_pwd, buf);
     fd = popen(cmd, "r");
 	while((fgets(out, 256, fd)) != NULL) {
 		pcp_write(frontend, "s", 1);
