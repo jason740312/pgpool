@@ -1280,7 +1280,7 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	pcp_write(frontend, proc, sizeof(proc));
 	do_pcp_flush(frontend);
 
-	sprintf(cmd, "/QVS/usr/bin/pg_basebackup -h %s -p 3388 -U postgres -D /share/Public/pgsql 2>&1", buf);
+	sprintf(cmd, "/QVS/usr/bin/sudo -u postgres /QVS/usr/bin/pg_basebackup -h %s -p 3388 -U postgres -D /share/Public/pgsql 2>&1", buf);
     fd = popen(cmd, "r");
 	while((fgets(out, 256, fd)) != NULL) {
 		pcp_write(frontend, "s", 1);
