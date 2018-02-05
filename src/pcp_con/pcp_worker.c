@@ -1332,7 +1332,7 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	execute(frontend, "/sbin/getcfg Cluster postgre_user -f /QVS/qvs.conf", pg_user, "postgres", false);
 
 	send_message(frontend, "s", code, "Get db_pwd from config");
-	execute(frontend, "/sbin/getcfg Cluster db_password -f /QVS/qvs.conf", pg_user, "qvs", false);
+	execute(frontend, "/sbin/getcfg Cluster db_password -f /QVS/qvs.conf", db_pwd, "qvs", false);
 
 	send_message(frontend, "s", code, "Stop PostgreSQL service");
     fd = fopen("/QVS/pg_data/postmaster.pid", "r");
@@ -1342,18 +1342,21 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 		kill(pid, SIGTERM);
 		sleep(1);
 		system("rm -rf /QVS/pg_data/*");
-		sprintf(out, "Postgresql is terminated");
+		sprintf(out, "Postgresql is terminated, and db_dir is cleaned");
     }
 	else {
-		sprintf(out, "Postgresql cannot be terminated");
-		fin_code = "Failed";
+		system("rm -rf /QVS/pg_data/*");
+		sprintf(out, "db_dir is cleaned");
 	}
 	send_message(frontend, "s", code, out);
-	if (strcmp(fin_code, "Failed") == 0)
-		goto err;
+
+	send_message(frontend, "s", code, "Change owner")
+	sprintf(cmd, "chown %s /QVS/pg_data", pg_user);
+	execute(frontend, cmd, result, "", false);
+	memset(cmd, '\0', sizeof(cmd));
 
 	send_message(frontend, "s", code, "Synchronize node");
-	sprintf(cmd, "/QVS/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 3388 -U postgres -D /QVS/pg_data 2>&1", pg_user, db_pwd, buf);
+	sprintf(cmd, "/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 3388 -U postgres -D /QVS/pg_data 2>&1", pg_user, db_pwd, buf);
 	exstat = execute(frontend, cmd, result, "", true);
 	memset(cmd, '\0', sizeof(cmd));
 	if (exstat != 0) {
