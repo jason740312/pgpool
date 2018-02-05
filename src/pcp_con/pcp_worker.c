@@ -1290,8 +1290,6 @@ execute(PCP_CONNECTION *frontend, char *cmd, char *result, char *default_value, 
 			send_message(frontend, "s", code, out);
 			if (!ismultiple)
 				break;
-			else
-				send_message(frontend, "s", code, cmd);
 		}
 		else if (!ismultiple){
 			result = (char *)malloc((strlen(default_value)+1) * sizeof(char));
@@ -1360,18 +1358,22 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 
 	send_message(frontend, "s", code, "Synchronize node");
 	sprintf(cmd, "/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 9999 -U qvs -D /QVS/pg_data 2>&1", pg_user, db_pwd, buf);
+	send_message(frontend, "s", code, cmd);
 	exstat = execute(frontend, cmd, result, "", true);
 	memset(cmd, '\0', sizeof(cmd));
 	if (exstat != 0) {
 		fin_code = "Failed";
+		send_message(frontend, "s", code, "Failed to backup node");
 		goto err;
 	}
 
 	send_message(frontend, "s", code, "Start PostgreSQL service");
-	sprintf(cmd, "/QVS/usr/bin/sudo -u %s /QVS/usr/bin/pg_ctl -D /QVS/pg_data start 2>&1", pg_user);
+	sprintf(cmd, "/usr/bin/sudo -u %s /QVS/usr/bin/pg_ctl -D /QVS/pg_data start 2>&1", pg_user);
 	exstat = execute(frontend, cmd, result, "", true);
 	memset(cmd, '\0', sizeof(cmd));
 	fin_code = (exstat == 0)? "CommandComplete": "Failed";
+	if (exstat != 0)
+		send_message(frontend, "s", code, "Failed to start PostgreSQL service");
 
 err:
 	pcp_write(frontend, "s", 1);
