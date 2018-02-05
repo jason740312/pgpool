@@ -1288,6 +1288,10 @@ execute(PCP_CONNECTION *frontend, char *cmd, char *result, char *default_value, 
 			memset(out, '\0', sizeof(out));
 			sprintf(out, "result: %s", result);
 			send_message(frontend, "s", code, out);
+			if (!ismultiple)
+				break;
+			else
+				send_message(frontend, "s", code, cmd);
 		}
 		else if (!ismultiple){
 			result = (char *)malloc((strlen(default_value)+1) * sizeof(char));
@@ -1355,7 +1359,7 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	memset(cmd, '\0', sizeof(cmd));
 
 	send_message(frontend, "s", code, "Synchronize node");
-	sprintf(cmd, "/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 3388 -U postgres -D /QVS/pg_data 2>&1", pg_user, db_pwd, buf);
+	sprintf(cmd, "/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 9999 -U qvs -D /QVS/pg_data 2>&1", pg_user, db_pwd, buf);
 	exstat = execute(frontend, cmd, result, "", true);
 	memset(cmd, '\0', sizeof(cmd));
 	if (exstat != 0) {
