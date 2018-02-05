@@ -1278,6 +1278,7 @@ execute(PCP_CONNECTION *frontend, char *cmd, char *result, char *default_value, 
     int exstat = 0;
 	char code[] = "STDERR";
 	char out[256];
+	FILE *fd;
 
 	memset(out, '\0', sizeof(out));
 	fd = popen(cmd, "r");
@@ -1292,7 +1293,7 @@ execute(PCP_CONNECTION *frontend, char *cmd, char *result, char *default_value, 
 		else if (!ismultiple){
 			result = (char *)malloc((strlen(default_value)+1) * sizeof(char));
 			strnpy(result, default_value);
-			out = sprintf("Use default value: %s", default_value);
+			sprintf(out, "Use default value: %s", default_value);
 			send_message(frontend, "s", code, out);
 			break;
 		}
@@ -1308,6 +1309,7 @@ execute(PCP_CONNECTION *frontend, char *cmd, char *result, char *default_value, 
 static void 
 process_sync_node(PCP_CONNECTION *frontend, char *buf)
 {
+	int len = 0;
     char *pg_user;
 	char *db_pwd;
 	char *result;
