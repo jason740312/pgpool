@@ -1274,7 +1274,6 @@ send_message(PCP_CONNECTION *frontend, char *mark, char *code, char *message)
 int 
 execute(PCP_CONNECTION *frontend, char *cmd, char *result, char *default_value, bool ismultiple)
 {
-	int len = 0;
     int exstat = 0;
 	char code[] = "STDERR";
 	char out[256];
@@ -1350,7 +1349,7 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	}
 	send_message(frontend, "s", code, out);
 
-	send_message(frontend, "s", code, "Change owner")
+	send_message(frontend, "s", code, "Change owner");
 	sprintf(cmd, "chown %s /QVS/pg_data", pg_user);
 	execute(frontend, cmd, result, "", false);
 	memset(cmd, '\0', sizeof(cmd));
