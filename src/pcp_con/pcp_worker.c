@@ -1268,7 +1268,7 @@ send_message(PCP_CONNECTION *frontend, char *mark, char *code, char *message)
 	len = htonl(sizeof(int) + sizeof(code) + strlen(message) + 1);
 	pcp_write(frontend, &len, sizeof(int));
 	pcp_write(frontend, code, sizeof(code));
-	pcp_write(frontend, out, strlen(message) + 1);
+	pcp_write(frontend, message, strlen(message) + 1);
 }
 
 int 
@@ -1292,7 +1292,7 @@ execute(PCP_CONNECTION *frontend, char *cmd, char *result, char *default_value, 
 		}
 		else if (!ismultiple){
 			result = (char *)malloc((strlen(default_value)+1) * sizeof(char));
-			strncpy(result, default_value);
+			strcpy(result, default_value);
 			sprintf(out, "Use default value: %s", default_value);
 			send_message(frontend, "s", code, out);
 			break;
