@@ -1262,7 +1262,7 @@ process_set_configration_parameter(PCP_CONNECTION *frontend,char *buf, int len)
 void 
 send_message(PCP_CONNECTION *frontend, char *mark, char *code, char *message)
 {
-    int len = 0
+    int len = 0;
 
 	pcp_write(frontend, mark, 1);
 	len = htonl(sizeof(int) + sizeof(code) + strlen(message) + 1);
