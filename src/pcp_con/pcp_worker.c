@@ -1271,7 +1271,6 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	char *fin_code = "CommandComplete";
 	char out[256];
 	char *pg_user, *db_pwd;
-	char *send_stderr;
 	int exstat;
     FILE *fd;
 	pid_t pid;
@@ -1349,8 +1348,8 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	pcp_write(frontend, &len, sizeof(int));
 	pcp_write(frontend, code, sizeof(code));
 	pcp_write(frontend, out, strlen(out) + 1);
-	if (fin_code == "Failed")
-		goto end;
+	if (strcmp(fin_code, "Failed") == 0)
+		goto err;
 	memset(out, '\0', sizeof(out));
 
 	sprintf(cmd, "/QVS/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 3388 -U postgres -D /QVS/pg_data 2>&1", pg_user, db_pwd, buf);
