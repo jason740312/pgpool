@@ -1292,7 +1292,7 @@ execute(PCP_CONNECTION *frontend, char *cmd, char *result, char *default_value, 
 		}
 		else if (!ismultiple){
 			result = (char *)malloc((strlen(default_value)+1) * sizeof(char));
-			strnpy(result, default_value);
+			strncpy(result, default_value);
 			sprintf(out, "Use default value: %s", default_value);
 			send_message(frontend, "s", code, out);
 			break;
