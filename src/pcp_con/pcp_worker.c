@@ -1259,8 +1259,131 @@ process_set_configration_parameter(PCP_CONNECTION *frontend,char *buf, int len)
 	do_pcp_flush(frontend);
 }
 
+void 
+send_message(PCP_CONNECTION *frontend, char *mark, char *code, char *message)
+{
+    int len = 0
+
+	pcp_write(frontend, mark, 1);
+	len = htonl(sizeof(int) + sizeof(code) + strlen(out) + 1);
+	pcp_write(frontend, &len, sizeof(int));
+	pcp_write(frontend, code, sizeof(code));
+	pcp_write(frontend, out, strlen(out) + 1);
+}
+
+int 
+execute(PCP_CONNECTION *frontend, char *cmd, char *result, char *default_value, bool ismultiple)
+{
+	int len = 0;
+    int exstat = 0;
+	char code[] = "STDERR";
+	char out[256];
+
+	memset(out, '\0', sizeof(out));
+	fd = popen(cmd, "r");
+	while(True) {
+		if ((fgets(out, 256, fd)) != NULL) {
+			result = (char *)malloc(strlen(out) * sizeof(char));
+			strncpy(result, out, strlen(out)-1);
+			memset(out, '\0', sizeof(out));
+			sprintf(out, "result: %s", result);
+			send_message(frontend, "s", code, out);
+		}
+		else if (!ismultiple){
+			result = (char *)malloc((strlen(default_value)+1) * sizeof(char));
+			strnpy(result, default_value);
+			out = sprintf("Use default value: %s", default_value);
+			send_message(frontend, "s", code, out);
+			break;
+		}
+		else {
+			break;
+		}
+	}
+	exstat = WEXITSTATUS(pclose(fd));
+
+	return exstat;
+}
+
 static void 
 process_sync_node(PCP_CONNECTION *frontend, char *buf)
+{
+    char *pg_user;
+	char *db_pwd;
+	char *result;
+	char proc[] = "ProcessCommand";
+	char code[] = "STDERR";
+	char *fin_code = "CommandComplete";
+	char out[256];
+	char cmd[1024];
+	int exstat;
+
+	pcp_write(frontend, "s", 1);
+	len = htonl(sizeof(proc) + sizeof(int));
+	pcp_write(frontend, &len, sizeof(int));
+	pcp_write(frontend, proc, sizeof(proc));
+	do_pcp_flush(frontend);
+
+	send_message(frontend, "s", code, "Get postgresql user from config");
+	execute(frontend, "/sbin/getcfg Cluster postgre_user -f /QVS/qvs.conf", pg_user, "postgres", false);
+
+	send_message(frontend, "s", code, "Get db_pwd from config");
+	execute(frontend, "/sbin/getcfg Cluster db_password -f /QVS/qvs.conf", pg_user, "qvs", false);
+
+	send_message(frontend, "s", code, "Stop PostgreSQL service");
+    fd = fopen("/QVS/pg_data/postmaster.pid", "r");
+    if (fd != NULL){
+		pid = atoi(fgets(out, 256, fd));
+		fclose(fd);
+		kill(pid, SIGTERM);
+		sleep(1);
+		system("rm -rf /QVS/pg_data/*");
+		sprintf(out, "Postgresql is terminated");
+    }
+	else {
+		sprintf(out, "Postgresql cannot be terminated");
+		fin_code = "Failed";
+	}
+	send_message(frontend, "s", code, out);
+	if (strcmp(fin_code, "Failed") == 0)
+		goto err;
+
+	send_message(frontend, "s", code, "Synchronize node");
+	sprintf(cmd, "/QVS/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 3388 -U postgres -D /QVS/pg_data 2>&1", pg_user, db_pwd, buf);
+	exestat = execute(frontend, cmd, result, "", true);
+	memset(cmd, '\0', sizeof(cmd));
+	if (exstat != 0) {
+		fin_code = "Failed";
+		goto err;
+	}
+
+	send_message(frontend, "s", code, "Start PostgreSQL service");
+	sprintf(cmd, "/QVS/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_ctl -D /QVS/pg_data start 2>&1", pg_user);
+	exstat = execute(frontend, cmd, result, "", true);
+	memset(cmd, '\0', sizeof(cmd));
+	fin_code = (exstat == 0)? "CommandComplete": "Failed";
+
+err:
+	pcp_write(frontend, "s", 1);
+	len = htonl(sizeof(int) + strlen(fin_code) + 1);
+	pcp_write(frontend, &len, sizeof(int));
+	pcp_write(frontend, fin_code, strlen(fin_code) + 1);
+	do_pcp_flush(frontend);
+
+	if (strcmp(fin_code, "CommandComplete") == 0 ) {
+		ereport(DEBUG1,
+			(errmsg("PCP: node synchronization request complete"),
+			 errdetail(cmd)));
+	}
+	else {
+		ereport(DEBUG1,
+			(errmsg("PCP: node synchronization request failed"),
+			 errdetail(cmd)));
+	}
+}
+
+static void 
+process_sync_node_old(PCP_CONNECTION *frontend, char *buf)
 {
 	int len = 0;
 	char cmd[1024];
@@ -1388,7 +1511,7 @@ err:
 	pcp_write(frontend, fin_code, strlen(fin_code) + 1);
 	do_pcp_flush(frontend);
 
-	if (fin_code) {
+	if (strcmp(fin_code, "CommandComplete") == 0 ) {
 		ereport(DEBUG1,
 			(errmsg("PCP: node synchronization request complete"),
 			 errdetail(cmd)));
