@@ -1274,6 +1274,7 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	char *send_stderr;
 	int exstat;
     FILE *fd;
+	pid_t pid;
 
 	pcp_write(frontend, "s", 1);
 	len = htonl(sizeof(proc) + sizeof(int));
@@ -1282,26 +1283,92 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	do_pcp_flush(frontend);
 
 	//Get the postgre_user from config file
+    pg_user = "postgres";
     sprintf(cmd, "/sbin/getcfg Cluster postgre_user -f /QVS/qvs.conf");
     fd = popen(cmd, "r");
     if ((fgets(out, 256, fd)) != NULL){
         pg_user = (char *)malloc(strlen(out) * sizeof(char));
         strncpy(pg_user, out, strlen(out)-1);
     }
-    pg_user = "postgres";
+	else {
+		sprintf(out, "Use default username: %s", pg_user);
+	}
+	//Ouput log message of pg_user
+	pcp_write(frontend, "s", 1);
+       len = htonl(sizeof(int)
+			    + sizeof(code)
+				+ strlen(out) + 1);
+	pcp_write(frontend, &len, sizeof(int));
+	pcp_write(frontend, code, sizeof(code));
+	pcp_write(frontend, out, strlen(out) + 1);
     pclose(fd);
+	memset(cmd, '\0', sizeof(cmd));
+	memset(out, '\0', sizeof(out));
 
 	//Get the db_password from config file
+    db_pwd = "qvs";
 	sprintf(cmd, "/sbin/getcfg Cluster db_password -f /QVS/qvs.conf");
     fd = popen(cmd, "r");
     if ((fgets(out, 256, fd)) != NULL){
         db_pwd = (char *)malloc(strlen(out) * sizeof(char));
         strncpy(db_pwd, out, strlen(out)-1);
     }
-    db_pwd = "qvs";
+	else {
+		sprintf(out, "Uset default password: %s", db_pwd);
+	}
+	//Ouput log message of db_pwd
+	pcp_write(frontend, "s", 1);
+       len = htonl(sizeof(int)
+			    + sizeof(code)
+				+ strlen(out) + 1);
+	pcp_write(frontend, &len, sizeof(int));
+	pcp_write(frontend, code, sizeof(code));
+	pcp_write(frontend, out, strlen(out) + 1);
     pclose(fd);
+	memset(cmd, '\0', sizeof(cmd));
+
+	//Check the state of postgresql
+    fd = fopen("/QVS/pg_data/postmaster.pid", "r");
+    if (fd != NULL){
+		pid = atoi(fgets(out, 256, fd));
+		fclose(fd);
+		kill(pid, SIGTERM);
+		sleep(1);
+		system("rm -rf /QVS/pg_data/*");
+		sprintf(out, "Postgresql is terminated");
+    }
+	else {
+		sprintf(out, "Postgresql cannot be terminated");
+		fin_code = "Failed";
+	}
+	//Output log message of Postgresql termination
+	pcp_write(frontend, "s", 1);
+       len = htonl(sizeof(int)
+			    + sizeof(code)
+				+ strlen(out) + 1);
+	pcp_write(frontend, &len, sizeof(int));
+	pcp_write(frontend, code, sizeof(code));
+	pcp_write(frontend, out, strlen(out) + 1);
+	if (fin_code == "Failed")
+		goto end;
+	memset(out, '\0', sizeof(out));
 
 	sprintf(cmd, "/QVS/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 3388 -U postgres -D /QVS/pg_data 2>&1", pg_user, db_pwd, buf);
+    fd = popen(cmd, "r");
+	while((fgets(out, 256, fd)) != NULL) {
+		pcp_write(frontend, "s", 1);
+        len = htonl(sizeof(int)
+				    + sizeof(code)
+					+ strlen(out) + 1);
+		pcp_write(frontend, &len, sizeof(int));
+		pcp_write(frontend, code, sizeof(code));
+		pcp_write(frontend, out, strlen(out) + 1);
+	}
+	pclose(fd);
+	memset(cmd, '\0', sizeof(cmd));
+	memset(out, '\0', sizeof(out));
+
+	sprintf(cmd, "/QVS/usr/bin/sudo -u %s /QVS/usr/bin/pg_ctl -D /QVS/pg_data start 2>&1", pg_user);
     fd = popen(cmd, "r");
 	while((fgets(out, 256, fd)) != NULL) {
 		pcp_write(frontend, "s", 1);
@@ -1315,15 +1382,23 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	exstat = WEXITSTATUS(pclose(fd));
 	fin_code = (exstat == 0)? "CommandComplete":"Failed";
 
+err:
 	pcp_write(frontend, "s", 1);
 	len = htonl(sizeof(int) + strlen(fin_code) + 1);
 	pcp_write(frontend, &len, sizeof(int));
 	pcp_write(frontend, fin_code, strlen(fin_code) + 1);
 	do_pcp_flush(frontend);
 
-	ereport(DEBUG1,
-			(errmsg("PCP: processing node synchronization request"),
+	if (fin_code) {
+		ereport(DEBUG1,
+			(errmsg("PCP: node synchronization request complete"),
 			 errdetail(cmd)));
+	}
+	else {
+		ereport(DEBUG1,
+			(errmsg("PCP: node synchronization request failed"),
+			 errdetail(cmd)));
+	}
 }
 /*
  * Wrapper around pcp_flush which throws FATAL error when pcp_flush fails
