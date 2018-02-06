@@ -1358,7 +1358,7 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	memset(cmd, '\0', sizeof(cmd));
 
 	send_message(frontend, "s", code, "Synchronize node");
-	sprintf(cmd, "/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 9999 -U qvs -D /QVS/pg_data -v -P -x stream 2>&1", pg_user, db_pwd, buf);
+	sprintf(cmd, "/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 9999 -U qvs -D /QVS/pg_data -v -P -X stream 2>&1", pg_user, db_pwd, buf);
 	send_message(frontend, "s", code, cmd);
 	exstat = execute(frontend, cmd, &result, "", true);
 	memset(cmd, '\0', sizeof(cmd));
