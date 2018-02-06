@@ -1272,7 +1272,7 @@ send_message(PCP_CONNECTION *frontend, char *mark, char *code, char *message)
 }
 
 int 
-execute(PCP_CONNECTION *frontend, char *cmd, char *result, char *default_value, bool ismultiple)
+execute(PCP_CONNECTION *frontend, char *cmd, char **result, char *default_value, bool ismultiple)
 {
     int exstat = 0;
 	char code[] = "STDERR";
@@ -1283,17 +1283,17 @@ execute(PCP_CONNECTION *frontend, char *cmd, char *result, char *default_value, 
 	fd = popen(cmd, "r");
 	while(true) {
 		if ((fgets(out, 256, fd)) != NULL) {
-			result = (char *)malloc(strlen(out) * sizeof(char));
-			strncpy(result, out, strlen(out)-1);
+			*result = (char *)malloc(strlen(out) * sizeof(char));
+			strncpy(*result, out, strlen(out)-1);
 			memset(out, '\0', sizeof(out));
-			sprintf(out, "result: %s", result);
+			sprintf(out, "result: %s", *result);
 			send_message(frontend, "s", code, out);
 			if (!ismultiple)
 				break;
 		}
 		else if (!ismultiple){
-			result = (char *)malloc((strlen(default_value)+1) * sizeof(char));
-			strcpy(result, default_value);
+			*result = (char *)malloc((strlen(default_value)+1) * sizeof(char));
+			strcpy(*result, default_value);
 			sprintf(out, "Use default value: %s", default_value);
 			send_message(frontend, "s", code, out);
 			break;
@@ -1330,10 +1330,10 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	do_pcp_flush(frontend);
 
 	send_message(frontend, "s", code, "Get postgresql user from config");
-	execute(frontend, "/sbin/getcfg Cluster postgre_user -f /QVS/qvs.conf", pg_user, "postgres", false);
+	execute(frontend, "/sbin/getcfg Cluster postgre_user -f /QVS/qvs.conf", &pg_user, "postgres", false);
 
 	send_message(frontend, "s", code, "Get db_pwd from config");
-	execute(frontend, "/sbin/getcfg Cluster db_password -f /QVS/qvs.conf", db_pwd, "qvs", false);
+	execute(frontend, "/sbin/getcfg Cluster db_password -f /QVS/qvs.conf", &db_pwd, "qvs", false);
 
 	send_message(frontend, "s", code, "Stop PostgreSQL service");
     fd = fopen("/QVS/pg_data/postmaster.pid", "r");
@@ -1353,13 +1353,13 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 
 	send_message(frontend, "s", code, "Change owner");
 	sprintf(cmd, "chown %s /QVS/pg_data", pg_user);
-	execute(frontend, cmd, result, "", false);
+	execute(frontend, cmd, &result, "", false);
 	memset(cmd, '\0', sizeof(cmd));
 
 	send_message(frontend, "s", code, "Synchronize node");
 	sprintf(cmd, "/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 9999 -U qvs -D /QVS/pg_data 2>&1", pg_user, db_pwd, buf);
 	send_message(frontend, "s", code, cmd);
-	exstat = execute(frontend, cmd, result, "", true);
+	exstat = execute(frontend, cmd, &result, "", true);
 	memset(cmd, '\0', sizeof(cmd));
 	if (exstat != 0) {
 		fin_code = "Failed";
@@ -1369,7 +1369,7 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 
 	send_message(frontend, "s", code, "Start PostgreSQL service");
 	sprintf(cmd, "/usr/bin/sudo -u %s /QVS/usr/bin/pg_ctl -D /QVS/pg_data start 2>&1", pg_user);
-	exstat = execute(frontend, cmd, result, "", true);
+	exstat = execute(frontend, cmd, &result, "", true);
 	memset(cmd, '\0', sizeof(cmd));
 	fin_code = (exstat == 0)? "CommandComplete": "Failed";
 	if (exstat != 0)
