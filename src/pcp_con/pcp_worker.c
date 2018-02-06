@@ -1288,25 +1288,18 @@ execute(PCP_CONNECTION *frontend, char *cmd, char **result, char *default_value,
 			if (out[len -1] == '\n')
 				out[len -1] = '\0';
 			len = strlen(out);
-			printf("out(%d): %s\n", len, out);
 			*result = (char *)malloc((len + 1) * sizeof(char));
 			strcpy(*result, out);
-			printf("resultB(%d): %s\n", strlen(*result), *result);
 			memset(out, '\0', sizeof(out));
-			sprintf(out, "result(%d): %s\0", strlen(*result), *result);
+			sprintf(out, "result: %s\0", *result);
 			send_message(frontend, "s", code, out);
-			printf("resultA(%d): %s\n", strlen(*result), *result);
 			if (!ismultiple)
 				break;
 		}
-		else if (!ismultiple){
-			*result = (char *)malloc((strlen(default_value)+1) * sizeof(char));
-			strcpy(*result, default_value);
+		else {
+			*result = default_value;
 			sprintf(out, "Use default value: %s", default_value);
 			send_message(frontend, "s", code, out);
-			break;
-		}
-		else {
 			break;
 		}
 	}
@@ -1365,7 +1358,7 @@ process_sync_node(PCP_CONNECTION *frontend, char *buf)
 	memset(cmd, '\0', sizeof(cmd));
 
 	send_message(frontend, "s", code, "Synchronize node");
-	sprintf(cmd, "/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 9999 -U qvs -D /QVS/pg_data 2>&1", pg_user, db_pwd, buf);
+	sprintf(cmd, "/usr/bin/sudo -u %s env PGPASSWORD=%s /QVS/usr/bin/pg_basebackup -h %s -p 9999 -U qvs -D /QVS/pg_data -v -P -x stream 2>&1", pg_user, db_pwd, buf);
 	send_message(frontend, "s", code, cmd);
 	exstat = execute(frontend, cmd, &result, "", true);
 	memset(cmd, '\0', sizeof(cmd));
