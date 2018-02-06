@@ -1278,14 +1278,19 @@ execute(PCP_CONNECTION *frontend, char *cmd, char **result, char *default_value,
 	char code[] = "STDERR";
 	char out[256];
 	FILE *fd;
+	int len;
 
 	memset(out, '\0', sizeof(out));
 	fd = popen(cmd, "r");
 	while(true) {
 		if ((fgets(out, 256, fd)) != NULL) {
-			printf("out(%d): %s\n", (int)strlen(out), out);
-			*result = (char *)malloc(strlen(out) * sizeof(char));
-			strncpy(*result, out, strlen(out)-1);
+			len = strlen(out);
+			if (out[len -1] == '\n')
+				out[len -1] = '\0';
+			len = strlen(out);
+			printf("out(%d): %s\n", len, out);
+			*result = (char *)malloc((len + 1) * sizeof(char));
+			strcpy(*result, out);
 			printf("resultB(%d): %s\n", strlen(*result), *result);
 			memset(out, '\0', sizeof(out));
 			sprintf(out, "result(%d): %s\0", strlen(*result), *result);
