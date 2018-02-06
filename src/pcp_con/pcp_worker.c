@@ -1286,8 +1286,9 @@ execute(PCP_CONNECTION *frontend, char *cmd, char **result, char *default_value,
 			*result = (char *)malloc(strlen(out) * sizeof(char));
 			strncpy(*result, out, strlen(out)-1);
 			memset(out, '\0', sizeof(out));
-			sprintf(out, "result: %s", *result);
+			sprintf(out, "result(%d): %s\0", strlen(*result), *result);
 			send_message(frontend, "s", code, out);
+			printf("result(%d): %s\n", strlen(*result), *result);
 			if (!ismultiple)
 				break;
 		}
