@@ -1286,10 +1286,11 @@ execute(PCP_CONNECTION *frontend, char *cmd, char **result, char *default_value,
 			printf("out(%d): %s\n", (int)strlen(out), out);
 			*result = (char *)malloc(strlen(out) * sizeof(char));
 			strncpy(*result, out, strlen(out)-1);
+			printf("resultB(%d): %s\n", strlen(*result), *result);
 			memset(out, '\0', sizeof(out));
 			sprintf(out, "result(%d): %s\0", strlen(*result), *result);
 			send_message(frontend, "s", code, out);
-			printf("result(%d): %s\n", strlen(*result), *result);
+			printf("resultA(%d): %s\n", strlen(*result), *result);
 			if (!ismultiple)
 				break;
 		}
