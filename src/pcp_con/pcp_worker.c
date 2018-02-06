@@ -1283,6 +1283,7 @@ execute(PCP_CONNECTION *frontend, char *cmd, char **result, char *default_value,
 	fd = popen(cmd, "r");
 	while(true) {
 		if ((fgets(out, 256, fd)) != NULL) {
+			printf("out(%d): %s\n", (int)strlen(out), out);
 			*result = (char *)malloc(strlen(out) * sizeof(char));
 			strncpy(*result, out, strlen(out)-1);
 			memset(out, '\0', sizeof(out));
